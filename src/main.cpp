@@ -15,34 +15,59 @@ class cRegion
 public:
     cCluster myCluster;
     double myRadius;
+    int myTime;
 
     cRegion(cCluster &c)
         : myCluster(c)
     {
         // find radius of cluster
-        cxy clusterCenter(myCluster.center().d[0], myCluster.center().d[1]);
-        double r2 = 0;
-        for (auto &p : myCluster.points())
-        {
-            cxy cxyp(p->d[0], p->d[1]);
-            double d2 = clusterCenter.dist2(cxyp);
-            if (d2 > r2)
-                r2 = d2;
-        }
-        myRadius = sqrt( r2 );
+        radius();
+
+        myTime = myCluster.points().size();
     }
-    std::string text()
-    {
-        std::stringstream ss;
-        ss << "region at " << myCluster.center().d[0] << "," << myCluster.center().d[0]
-           << " radius " << myRadius
-           << " occupied for " << myCluster.points().size() << " hours\n";
-        return ss.str();
-    }
+    std::string text();
+
+    static void sort();
+
+private:
+    void radius();
 };
 
 std::vector<cxy> theLocations;
 std::vector<cRegion> theRegions;
+
+void cRegion::radius()
+{
+    cxy clusterCenter(myCluster.center().d[0], myCluster.center().d[1]);
+    double r2 = 0;
+    for (auto &p : myCluster.points())
+    {
+        cxy cxyp(p->d[0], p->d[1]);
+        double d2 = clusterCenter.dist2(cxyp);
+        if (d2 > r2)
+            r2 = d2;
+    }
+    myRadius = sqrt(r2);
+}
+
+void cRegion::sort()
+{
+    std::sort(
+        theRegions.begin(), theRegions.end(),
+        [](const cRegion &a, const cRegion &b) -> bool
+        {
+            return (a.myTime > b.myTime);
+        });
+}
+
+std::string cRegion::text()
+{
+    std::stringstream ss;
+    ss << "region at " << myCluster.center().d[0] << "," << myCluster.center().d[0]
+       << " radius " << myRadius
+       << " occupied for " << myTime << " hours\n";
+    return ss.str();
+}
 
 void readLocations(const std::string &fname)
 {
@@ -65,31 +90,25 @@ void readLocations(const std::string &fname)
 
 void cluster()
 {
+    // construct KMeans with locations
     KMeans K;
-    K.clearData();
     for (auto &ip : theLocations)
     {
         K.Add({ip.x, ip.y});
     }
+
     // Init KMeans
     K.Init(2);
 
     // Run KMeans
     K.Iter(10);
 
-    // loop over clusters
+    // construct regions from clusters
     theRegions.clear();
     for (auto &c : K.clusters())
     {
         theRegions.emplace_back(c);
     }
-
-    // loop over regions
-    for (auto &r : theRegions)
-    {
-        std::cout << r.text();
-    }
-
 }
 
 class cGUI : public cStarterGUI
@@ -117,6 +136,16 @@ main()
     // cGUI theGUI;
 
     readLocations("../dat/data1.txt");
+
     cluster();
+
+    cRegion::sort();
+
+    std::cout << "Regions found, in decreasing occupation time\n";
+    for (auto &r : theRegions)
+    {
+        std::cout << r.text();
+    }
+
     return 0;
 }
