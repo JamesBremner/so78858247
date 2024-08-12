@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <iomanip>
 #include <wex.h>
 #include "cStarterGUI.h"
 
@@ -13,12 +14,15 @@
 class cRegion
 {
 public:
-    cCluster myCluster;
+    cCluster myCluster;        /// KMeans cluster
+    std::vector<cxy> myPoints; /// points in region
+    cxy myCenter;              /// center of region
     double myRadius;
+    double maxRadius2;
     int myTime;
 
     cRegion(cCluster &c)
-        : myCluster(c)
+        : myCluster(c), maxRadius2(1)
     {
         // find radius of cluster
         radius();
@@ -44,10 +48,26 @@ void cRegion::radius()
     {
         cxy cxyp(p->d[0], p->d[1]);
         double d2 = clusterCenter.dist2(cxyp);
+        if (d2 > maxRadius2)
+        {
+            r2 = maxRadius2;
+            continue;
+        }
         if (d2 > r2)
             r2 = d2;
+        myPoints.emplace_back(p->d[0], p->d[1]);
     }
     myRadius = sqrt(r2);
+
+    double sx, sy;
+    sx = sy = 0;
+    for (auto &p : myPoints)
+    {
+        sx += p.x;
+        sy += p.y;
+    }
+    myCenter.x = sx / myPoints.size();
+    myCenter.y = sy / myPoints.size();
 }
 
 void cRegion::sort()
@@ -63,7 +83,8 @@ void cRegion::sort()
 std::string cRegion::text()
 {
     std::stringstream ss;
-    ss << "region at " << myCluster.center().d[0] << "," << myCluster.center().d[0]
+    ss << std::setprecision(2)
+       << "region at " << myCenter.x << "," << myCenter.y
        << " radius " << myRadius
        << " occupied for " << myTime << " hours\n";
     return ss.str();
